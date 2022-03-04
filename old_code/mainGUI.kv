@@ -1,0 +1,675 @@
+#:kivy 1.0
+#:set padVal 5
+
+<MainGUI>:
+
+    canvas.before:
+        Rectangle:
+            pos: self.pos
+            size: self.size
+            source: 'lib/background.png'
+
+    BoxLayout:
+    
+        orientation:'vertical'
+        size_hint: 1.0, 1.0
+
+        BoxLayout:
+        
+            orientation : 'horizontal'
+            size_hint: 1.0, .85
+
+			AnchorLayout: 
+				
+				anchor_x: 'center'
+				anchor_y: 'center'    
+            	size_hint: 0.75, .98
+		        Image:
+		        	size_hint: .99, 1.0
+		            id:imViewer
+
+            TabbedPanel:
+            
+				anchor_x: 'center'
+				anchor_y: 'center'    
+                do_default_tab: False
+                size_hint: 0.25, .98
+
+                TabbedPanelItem:
+                
+                    text: 'Camera'
+                    
+                    BoxLayout:
+                    
+                        orientation : 'vertical'
+                        spacing : padVal
+                        size_hint: .98, 1
+
+                        BoxLayout:
+                            id:'nameBox'
+                            padding : padVal
+                            orientation : 'horizontal'
+                            Label:
+                                size_hint: .25,1
+                                text:'Name'
+                            TextInput:
+                                id: txtname
+                                text:'Name'
+                                size_hint_y:None
+                                size_hint_x: 1
+                                height : 30
+                                pos_hint: {'y': .33}
+
+                        BoxLayout:
+                            id:'folderBox'
+                            padding : padVal
+                            orientation : 'horizontal'
+                            Label:
+                                size_hint: .25,1
+                                text:'Folder'
+
+                            AnchorLayout:
+                                anchor_x: 'center'
+                                anchor_y: 'center'
+                                TextInput:
+                                    id: txtfolder
+                                    text:'Folder'
+
+                                    size_hint_y:None
+                                    size_hint_x: 1
+                                    height : 30
+
+                            AnchorLayout:
+                                size_hint: .25,1
+                                anchor_x: 'center'
+                                anchor_y: 'center'
+                                Button:
+                                    size_hint: .9,1
+                                    id: btnFolder
+                                    text:'Folder'
+                                    on_release: root.select()
+                                    size_hint_y:None
+                                    height : 50
+
+
+                        BoxLayout:
+                            id:'gainBox'
+                            padding : padVal
+                            orientation : 'horizontal'
+                            Label:
+                                text:'Gain'
+                                size_hint: .25,1
+
+                            AnchorLayout:
+                                anchor_x: 'center'
+                                anchor_y: 'center'
+                                Slider:
+                                    id: slidergain
+                                    min: 0
+                                    max: 30
+                                    step:1
+                                    orientation : 'horizontal'
+                                    on_value: root.setGain(*args)
+                                    valign: 'middle'
+                                    size_hint_y:None
+                                    size_hint_x: 1
+                                    height : 30
+                            AnchorLayout:
+                                size_hint: .25,1
+                                anchor_x: 'center'
+                                anchor_y: 'center'
+
+                                TextInput:
+                                    text: str(slidergain.value)
+                                    active: False
+                                    disabled: True
+                                    size_hint: None,None
+                                    width : 100
+                                    height : 30
+
+                        BoxLayout:
+                            id:'expBox'
+                            padding : padVal
+                            orientation : 'horizontal'
+                            Label:
+                                size_hint: .25,1
+                                text:'Exp'
+
+                            AnchorLayout:
+                                anchor_x: 'center'
+                                anchor_y: 'center'
+                                Slider:
+                                    id: sliderexp
+                                    min: 1
+                                    max: 750
+                                    step:1
+                                    on_value: root.setExp(*args)
+                                    size_hint_y:None
+                                    size_hint_x: 1
+                                    height : 30
+                            AnchorLayout:
+                                size_hint: .25,1
+                                anchor_x: 'center'
+                                anchor_y: 'center'
+                                TextInput:
+                                    id: txtExp
+                                    text: str(sliderexp.value)+' ms'
+                                    active: False
+                                    disabled: True
+                                    size_hint: None,None
+                                    width : 100
+                                    height : 30
+
+                        BoxLayout:
+                            id:'gammaBox'
+                            padding : padVal
+                            orientation : 'horizontal'
+                            Label:
+                            	#disabled: True
+                                size_hint: .25,1
+                                text:'Gamma'
+
+                            AnchorLayout:
+                                anchor_x: 'center'
+                                anchor_y: 'center'
+                                #disabled: True
+                                Slider:
+                                    id: slidergamma
+                                    min: 0.5
+                                    max: 3.9
+                                    #disabled: True
+                                    step:.25
+                                    orientation : 'horizontal'
+                                    on_value: root.setGamma(*args)
+                                    size_hint_y:None
+                                    size_hint_x: 1
+                                    height : 30
+                                    
+                            AnchorLayout:
+                                size_hint: .25,1
+                                anchor_x: 'center'
+                                anchor_y: 'center'
+                                TextInput:
+                                    text: str(slidergamma.value)
+                                    active: False
+                                    disabled: True
+                                    size_hint: None,None
+                                    width : 100
+                                    height : 30
+                                    
+						BoxLayout:
+							orientation: 'horizontal'
+		                    Button:
+		                        text: 'Capture Image'
+		                        on_release: root.SaveSingleIm()
+							BoxLayout:
+								orientation: 'vertical'
+								
+								Button:
+									text:'Load Prop'
+									on_release: root.iniFile()
+									
+								Button:
+									text:'Save Prop'
+									on_release: root.outFile()
+
+                TabbedPanelItem:
+                
+                    text: 'Mot Control'
+
+                    BoxLayout:
+                    
+                        orientation : 'vertical'
+                        padding : padVal
+                        size_hint: .98, 1.0
+
+                        BoxLayout:
+                            size_hint: .98, .50
+                            AnchorLayout:
+                                anchor_x: 'center'
+                                anchor_y: 'center'
+                                MatplotFigure:
+                                    id:figDim
+                                    size_hint_y: 0.9
+                                    size_hint_x: 0.9
+                                    
+                        GridLayout:
+                        
+                            rows: 1
+                            orientation : 'vertical'
+                            padding : padVal
+                            size_hint: .98, .08
+
+                            Button:
+                                text:'plotUpdate'
+                                on_release: root.plotUpdate()
+
+                        GridLayout:
+                        
+                            rows: 3
+                            orientation : 'vertical'
+                            padding : padVal
+                            size_hint: .98, .25
+
+                            Button:
+                                text:'X-'
+                                on_release: root.moveLeft()
+                            Button:
+                                text:'X+'
+                                on_release: root.moveRight()
+                            Button:
+                                text:'Y-'
+                                on_release: root.moveDOWN()
+                            Button:
+                                text:'Y+'
+                                on_release: root.moveUP()
+                            Button:
+                                text:'Z-'
+                                on_release: root.moveZD()
+                            Button:
+                                text:'Z+'
+                                on_release: root.moveZU()
+
+                        GridLayout:
+                        
+                            rows: 2
+                            size_hint: .98, .17
+                            padding : padVal
+                            orientation : 'horizontal'
+                            
+                            Button:
+                                id: btnTrack
+                                text: 'Track'
+                                on_release: root.Track()
+                            Button:
+                                id: btnRec
+                                text: 'VRec.'
+                                on_release: root.Rec()
+                            Button:
+                                id: btnShowBlob
+                                text: 'Show Blob'
+                                on_release: root.ShowBlob()
+                            Button:
+                                id: btnShowContour
+                                text: 'Show Contour'
+                                on_release: root.ShowContour()
+
+                TabbedPanelItem:
+                
+                    text: 'Parameters'
+                    
+                    BoxLayout:
+                    
+                        orientation : 'vertical'
+                        padding : padVal
+                        size_hint: .98, 1.0
+                        
+                        BoxLayout:
+                            id: thrVal
+                            padding : padVal
+                            orientation : 'horizontal'
+                            Label:
+                                text:'Threshold'
+                                size_hint: .25,1
+
+                            AnchorLayout:
+                                anchor_x: 'center'
+                                anchor_y: 'center'
+                                Slider:
+                                    id: sliderThreshold
+                                    min: 0
+                                    max: 255
+                                    value: 128
+                                    step:1
+                                    orientation : 'horizontal'
+                                    on_value: root.setThrVal(*args)
+                                    valign: 'middle'
+                                    size_hint_y:None
+                                    size_hint_x: 1
+                                    height : 30
+
+                            AnchorLayout:
+                                size_hint: .25,1
+                                anchor_x: 'center'
+                                anchor_y: 'center'
+
+                                TextInput:
+                                    text: str(sliderThreshold.value)
+                                    active: False
+                                    disabled: True
+                                    size_hint: None,None
+                                    width : 100
+                                    height : 30
+                        BoxLayout:
+                            id: maxC
+                            padding : padVal
+                            orientation : 'horizontal'
+                            Label:
+                                text:'Large Circle'
+                                size_hint: .25,1
+
+                            AnchorLayout:
+                                anchor_x: 'center'
+                                anchor_y: 'center'
+                                Slider:
+                                    id: sliderMaxC
+                                    min: 0
+                                    max: 10000
+                                    value: 2000
+                                    step:50
+                                    orientation : 'horizontal'
+                                    on_value: root.setMaxC(*args)
+                                    valign: 'middle'
+                                    size_hint_y:None
+                                    size_hint_x: 1
+                                    height : 30
+
+                            AnchorLayout:
+                                size_hint: .25,1
+                                anchor_x: 'center'
+                                anchor_y: 'center'
+
+                                TextInput:
+                                    text: str(sliderMaxC.value)
+                                    active: False
+                                    disabled: True
+                                    size_hint: None,None
+                                    width : 100
+                                    height : 30
+                        BoxLayout:
+                            id: minC
+                            padding : padVal
+                            orientation : 'horizontal'
+                            Label:
+                                text:'Min Circle'
+                                size_hint: .25,1
+
+                            AnchorLayout:
+                                anchor_x: 'center'
+                                anchor_y: 'center'
+                                Slider:
+                                    id: sliderMinC
+                                    min: 0
+                                    max: 10000
+                                    value: 40
+                                    step:5
+                                    orientation : 'horizontal'
+                                    on_value: root.setMinC(*args)
+                                    valign: 'middle'
+                                    size_hint_y:None
+                                    size_hint_x: 1
+                                    height : 30
+
+                            AnchorLayout:
+                                size_hint: .25,1
+                                anchor_x: 'center'
+                                anchor_y: 'center'
+
+                                TextInput:
+                                    text: str(sliderMinC.value)
+                                    active: False
+                                    disabled: True
+                                    size_hint: None,None
+                                    width : 100
+                                    height : 30
+
+                        BoxLayout:
+                            id: bksub
+                            padding : padVal
+                            orientation : 'horizontal'
+                            Label:
+                                text:'Bck subs'
+                                size_hint: .25,1
+
+                            AnchorLayout:
+                                anchor_x: 'center'
+                                anchor_y: 'center'
+                                Slider:
+                                    id: sliderBksub
+                                    min: 0
+                                    max: 200
+                                    value: 4
+                                    step:1
+                                    orientation : 'horizontal'
+                                    on_value: root.setBksub(*args)
+                                    valign: 'middle'
+                                    size_hint_y:None
+                                    size_hint_x: 1
+                                    height : 30
+
+                            AnchorLayout:
+                                size_hint: .25,1
+                                anchor_x: 'center'
+                                anchor_y: 'center'
+
+                                TextInput:
+                                    text: str(sliderBksub.value)
+                                    active: False
+                                    disabled: True
+                                    size_hint: None,None
+                                    width : 100
+                                    height : 30
+
+
+                        Button:
+                            text: 'Set Parameters Threshold'
+                            on_release: root.startRun()
+                            disable : True
+
+                        Image:
+                            id: logoMicOberta
+                            source:'lib/LogoWinkoms.gif'
+                            pos_hint: {'x':0,'y':0}
+                            keep_ratio: False
+                            size : 400,150
+                        TextInput:
+                            text: 'Software Captura imatges FL 1.0 \n\nThis Soft is licensed under a Creative Commons Attribution-NonCommercial 4.0 International License.\n\nhttp://www.winkoms.eu'
+
+        BoxLayout:
+        
+            orientation: 'horizontal'
+            size_hint: 1.0, .15
+
+	        BoxLayout:
+	        
+	            orientation: 'horizontal'
+	            size_hint: .75, .98
+		                            
+	            GridLayout:
+	            
+	                cols: 2
+	                size_hint: .35, .90
+	                padding : padVal
+	                orientation : 'vertical'
+					
+	                BoxLayout:
+	                    orientation:'horizontal'
+	                    AnchorLayout: 
+							anchor_x: 'center'
+		                    Label:
+	                        	text:'cam'     
+	                    AnchorLayout: 
+							anchor_x: 'center'
+	                        TextInput:    
+	                            id: cam_frmRate
+	                            size_hint: None, None
+	                            width : 100
+	                            height : 30
+	                            disabled: True
+	                            				
+	                BoxLayout:
+	                    orientation:'horizontal'
+	                    AnchorLayout: 
+							anchor_x: 'center'
+		                    Label:
+	                        	text:'vWrt'     
+	                    AnchorLayout: 
+							anchor_x: 'center'
+	                        TextInput:    
+	                            id: vWrt_frmRate
+	                            size_hint: None, None
+	                            width : 100
+	                            height : 30
+	                            disabled: True
+	                            
+	                BoxLayout:
+	                    orientation:'horizontal'
+	                    AnchorLayout: 
+							anchor_x: 'center'
+		                    Label:
+	                        	text:'trk'     
+	                    AnchorLayout: 
+							anchor_x: 'center'
+	                        TextInput:    
+	                            id: trk_frmRate
+	                            size_hint: None, None
+	                            width : 100
+	                            height : 30
+	                            disabled: True
+	                            				
+	                BoxLayout:
+	                    orientation:'horizontal'
+	                    AnchorLayout: 
+							anchor_x: 'center'
+		                    Label:
+	                        	text:'dWrt'     
+	                    AnchorLayout: 
+							anchor_x: 'center'
+	                        TextInput:    
+	                            id: dWrt_frmRate
+	                            size_hint: None, None
+	                            width : 100
+	                            height : 30
+	                            disabled: True
+	                            
+	                BoxLayout:
+	                    orientation:'horizontal'
+	                    
+	                BoxLayout:
+	                    orientation:'horizontal'
+
+
+		        BoxLayout:
+		        
+		            orientation: 'horizontal'
+		            size_hint: .65, 1.0
+		            
+	                BoxLayout:
+	                    orientation:'horizontal'
+		                size_hint: .04, 1.0
+			                            	            		            	
+	                BoxLayout:
+	                    orientation:'horizontal'
+		                size_hint: .22, 1.0
+	                    AnchorLayout: 
+							anchor_x: 'center'
+		                    Label:
+		                        text: 'X'
+	                    AnchorLayout: 
+							anchor_x: 'center'
+	                        TextInput:		        		
+	                            id: txtX
+	                            size_hint: None,None
+	                            width :  100
+	                            height : 30
+	                            disabled: True
+					            	
+	                BoxLayout:
+	                    orientation:'horizontal'
+		                size_hint: .22, 1.0
+	                    AnchorLayout: 
+							anchor_x: 'center'
+		                    Label:
+		                        text:'Y'
+	                    AnchorLayout: 
+							anchor_x: 'center'
+	                        TextInput:
+	                            id: txtY
+	                            size_hint: None, None
+	                            width : 100
+	                            height : 30
+	                            disabled: True
+						
+	                BoxLayout:
+	                    orientation:'horizontal'
+		                size_hint: .22, 1.0
+	                    AnchorLayout: 
+							anchor_x: 'center'
+		                    Label:
+	                        	text: 'Z'
+	                    AnchorLayout: 
+							anchor_x: 'center'    
+	                        TextInput:
+	                            id: txtZ
+	                            size_hint: None, None
+	                            width : 100
+	                            height : 30
+	                            disabled: True
+	                            
+	                BoxLayout:
+	                    orientation:'horizontal'
+		                size_hint: .22, 1.0
+	                    AnchorLayout: 
+							anchor_x: 'center'
+		                    Label:
+		                        text:'T'     
+	                    AnchorLayout: 
+							anchor_x: 'center'
+	                        TextInput:    
+	                            id: txtTime
+	                            size_hint: None,None
+	                            width : 100
+	                            height : 30
+	                            disabled: True
+	                            
+	                BoxLayout:
+	                    orientation:'horizontal'
+		                size_hint: .08, 1.0
+		
+	
+
+	        BoxLayout:
+	        
+	            orientation: 'horizontal'
+	            size_hint: .25, 1.0
+						
+	            AnchorLayout:
+	            	size_hint: 0.98, .99 
+					anchor_x: 'center'
+					anchor_y: 'center'    
+		        	Image:
+		        		id: histViewer
+	            	    #size_hint: 0.5,0.5
+                                
+<ShowMessage>:
+    BoxLayout:
+        size: root.size
+        pos: root.pos
+        orientation: "vertical"
+
+        Label:
+        	id: txtMsg
+            text: 'Please choose a Folder'
+
+        BoxLayout:
+            size_hint_y: None
+            height: 30
+            Button:
+                text: "Cancel"
+                on_release: root.cancel()
+<MessageChn>:
+    BoxLayout:
+        size: root.size
+        pos: root.pos
+        orientation: "vertical"
+
+        Label:
+        	id: txtMsg
+            text: 'Please choose a Folder'
+
+		BoxLayout:
+		    size_hint_y: None
+		    height: 30
+		    Button:
+				text: "Ok"
+				on_release: root.cancel()
