@@ -7,4 +7,7 @@ First of all, the Spinnaker API needs to be downloaded (https://flir.app.boxcn.n
 
 ## Interesting links
 Syncronised image acquisition.
+
 http://justinblaber.org/acquiring-stereo-images-with-spinnaker-api-hardware-trigger/
+
+https://github.com/justinblaber/multi_pyspin
