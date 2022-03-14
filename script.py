@@ -18,7 +18,7 @@ cam_list = system.GetCameras()
 
 class SingleCam:
 
-    def __init__(self, serial_number, exposure, gain, mode):
+    def __init__(self, serial_number, exposure = 40, gain = 1, mode = 'COLOR'):
 
         self.sn = serial_number
         self.exposure = exposure
@@ -26,11 +26,11 @@ class SingleCam:
 
         self.video_name = config.vidName + '_' + str(self.sn)
         self.fps = 15 ## ??
-        self.fps_timer = 0
-        self.fps_counter = 0
-        # self.is_recording = False
+        # self.fps_timer = 0
+        # self.fps_counter = 0
+        self.is_recording = False
 
-        if mode == 'BW':
+        if mode == 'BW' or mode == 'BLACK_AND_WHITE':
             self.getImg = self.bwImg
         else:
             self.getImg = self.colImg
@@ -97,15 +97,14 @@ class SingleCam:
 
     def update(self):
 
-        while True:
-        
-            self.frameRate()
+        while self.is_recording:
+
             img = self.imgGet()
             self.outVid.write(img)
 
     def start(self):
     
-        self.startTime = time.time()
+        self.is_recording = True
         self.cam.BeginAcquisition()
 
         # self.is_recording = True
@@ -120,7 +119,9 @@ class SingleCam:
 
     def stop(self):
 
+        self.is_recording = False
         self.cam.EndAcquisition()
+        self.outVid.release()
 
     def device_info(self):
     
@@ -165,71 +166,52 @@ class SingleCam:
 
 class MultiCam:
 
-    def __init__(self, cam_list, time, recording_method = 'continous'):
+    def __init__(self, cam_list, time, recording_method = 'continuous'):
 
         self.cam_list = cam_list
         self.q = []
+        for c in cam_list:
+            self.q.append(Queue(1))
         self.vidPath = config.vidPath
-        self.time2record = time
+        self.tREC = time
+        self.method = recording_method
             
-        if recording_method == 'scheduled':
-                self.record = self.scheduled_recording
+        # if recording_method == 'scheduled':
+        #         self.record = self.scheduled_recording
+        # else:
+        #     self.record = self.continuous_recording
+
+    def REC(self):
+
+        if self.method == 'scheduled':
+            self.scheduled_recording()
+        
         else:
-            self.record = self.continuous_recording
+            self.continuous_recording()
 
-
-    def saveTh(self,secondsToCapture):
-        
-        print('Entro saveTh')
-                
-        iniCaptime = time.time()
-        t2Cap = int(secondsToCapture)
-        actCaptime =time.time()
-        
-        self.CamPreview = False
-        for i in range(len(AcoCAMArray.cameras)):
-            AcoCAMArray.cameras[i].CamPreview = False
-        
-        for i in range(len(AcoCAMArray.cameras)):
-            AcoCAMArray.cameras[i].folderA = self.folderA
-        
-        for i in range(len(AcoCAMArray.cameras)):
-                AcoCAMArray.cameras[i].RECEVENT = True
-        
-        actT = time.time()
-        while((actT-iniCaptime)<=t2Cap):
-            for c in range (AcoCAMArray.nCam):
-                AcoCAMArray.triggerTH[c].put(True)
-            actT = time.time()
-        
-        for i in range(len(AcoCAMArray.cameras)):
-            AcoCAMArray.cameras[i].RECEVENT = False      
-        sleep(0.5)            
-            
-        print ('Surto saveTh')
+        for c in cam_list:
+            c.stop()
 
 
     def continuous_recording(self):
-        self.startTime = time.time()
-        self.endTime = self.startTime + self.time2record
-
-        while self.endTime >= time.time():
-            for c in self.q:
+        t0 = time.time()
+        while(time.time() - t0 <= self.tREC):
+            for c in self.cam_list:
                 c.put(True)
 
 
     def scheduled_recording(self):
-        self.startTime = time.time()
-        self.endTime = self.startTime + self.time2record
-        next_capture = self.
+        tf = self.tREC[0]
+        freq = self.tREC[1]
+        next_shot = time.time()
+        t0 = time.time()
 
-        while self.endTime >= time.time():
-
-            while
-            for c in self.q:
-                c.put(True)
-
-    
+        while(time.time() - t0 <= tf):
+            if time.time() >= next_shot:
+                for c in self.cam_list:
+                    c.put(True)
+                    c.put(False)
+                next_shot += freq
 
 
 def SaveIMG(self,evt):
