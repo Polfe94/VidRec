@@ -8,7 +8,7 @@ _balanceRed = 0 # 2.2799999713897705 # celegans
 _balanceBlue = 0 # 1.1799999475479126 # celegans
 
 ## UNCHECKED!
-exposure = 0.04
+exposure = 40
 gain = 1.0
 
 

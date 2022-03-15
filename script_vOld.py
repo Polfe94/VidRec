@@ -1,6 +1,6 @@
 # import os
 import PySpin
-import sys
+# import sys
 
 import cv2
 # import numpy as np
@@ -9,31 +9,26 @@ from queue import Queue
 from threading import Thread
 import time
 
-sys.path.append('/home/bigtracker/VidRec')
 import config
 
 system = PySpin.System.GetInstance()
 cam_list = system.GetCameras()
+
 ''' THREADS (vPol)'''
 
 class SingleCam:
-
-    def __init__(self, serial_number, exposure = 40, gain = 2, mode = 'COLOR'):
+    
+    def __init__(self, serial_number, exposure = 40, gain = 1.0, mode = 'COLOR'):
 
         self.sn = serial_number
-        self.exposure = float(exposure)
-        self.gain = float(gain)
-        
+        self.exposure = exposure
+        self.gain = gain
 
-        self.vidPath = config.vidPath
-        self.vidName = config.vidName + '_' + str(self.sn) + '.avi'
+        self.video_name = config.vidName + '_' + str(self.sn)
         self.fps = 15 ## ??
         # self.fps_timer = 0
-        self.frame_counter = 0
+        # self.fps_counter = 0
         self.is_recording = False
-        self.t = []
-        self.tREC = 0
-        self.q = Queue(1)
 
         if mode == 'BW' or mode == 'BLACK_AND_WHITE':
             self.getImg = self.bwImg
@@ -43,11 +38,7 @@ class SingleCam:
     def init_cam(self):
 
         self.cam = cam_list.GetBySerial(self.sn)
-
-        try:
-            self.cam.Init()
-        except:
-            print('+++ Cam %s NOT inited' % self.sn) 
+        self.cam.Init()
 
         nodemap = self.cam.GetNodeMap()
 
@@ -60,7 +51,7 @@ class SingleCam:
         try:
             if self.cam.PixelFormat.GetAccessMode() == PySpin.RW:
                 self.cam.PixelFormat.SetValue(PySpin.PixelColorFilter_BayerBG) #COLOR RGB
-                # print("Pixel format set to %s..." % self.cam.PixelFormat.GetCurrentEntry().GetSymbolic())
+                print("Pixel format set to %s..." % self.cam.PixelFormat.GetCurrentEntry().GetSymbolic())
         except PySpin.SpinnakerException as ex:
             print("Error: %s" % ex)
 
@@ -72,7 +63,6 @@ class SingleCam:
 
         """Configuracio QuickSpin"""
 
-        '''
         """Exposure Time"""
         if self.cam.ExposureAuto is None or self.cam.ExposureAuto.GetAccessMode() != PySpin.RW:
             print("Unable to disable automatic exposure. Aborting...")
@@ -85,7 +75,7 @@ class SingleCam:
         """Gain"""
         self.cam.GainAuto.SetValue(PySpin.GainAuto_Off)
 
-        
+        '''
         # MANUAL WHITE BALANCE
         self.cam.BalanceWhiteAuto.SetValue(PySpin.BalanceWhiteAuto_Off, False)
         node_BR = PySpin.CFloatPtr(nodemap.GetNode("BalanceRatio"))
@@ -94,55 +84,35 @@ class SingleCam:
         self.cam.BalanceRatioSelector.SetValue(PySpin.BalanceRatioSelector_Red)
         node_BR.SetValue(config._balanceRed, False)
         '''
-        
 
-        # self.setExp()
-        # self.setGain()
+        self.exposure()
+        self.gain()
 
     def bwImg(self):
         img = self.cam.GetNextImage()
-        return img.Convert(PySpin.PixelFormat_Mono8, PySpin.NEAREST_NEIGHBOR).GetNDArray()
+        img.Convert(PySpin.PixelFormat_Mono8)
 
     def colImg(self):
-        img = self.cam.GetNextImage()
-        return img.Convert(PySpin.PixelFormat_BGR8, PySpin.NEAREST_NEIGHBOR).GetNDArray()
+        self.cam.GetNextImage()
 
     def update(self):
+
+        while True:
         
-        while self.is_recording:
+            self.frameRate()
+            img = self.imgGet()
+            self.outVid.write(img)
 
-            if self.q.full() == True:
-
-                img = self.q.get()
-                self.t.append(time.time() - self.t0) ## real "fps"
-                self.outVid.write(img)
-
-            else:
-                self.q.put(self.getImg())
-
-            if time.time() > self.finish_time:
-                self.is_recording = False
-
-                    
     def start(self):
     
-        self.init_cam()
-        self.is_recording = True
         self.cam.BeginAcquisition()
 
-        print('Cam %s initialized' % self.sn)
-
-        # self.fps = int(self.cam.AcquisitionFrameRate.GetValue()) ## replace fps!!
-        # print('Cam FPS = %s ' % self.fps)
-
+        self.is_recording = True
         self.outVid = cv2.VideoWriter(self.vidPath + self.vidName,
-        cv2.VideoWriter_fourcc('X','V','I','D'), self.fps, config.vidRes, 0)
+        cv2.VideoWriter_fourcc('X','V','I','D'), self.fps, config.vidRes)
 
         t = Thread(target = self.update, args = ())
         t.daemon = True
-
-        self.t0 = time.time()
-        self.finish_time = self.t0 + self.tREC
         t.start()
 
         return self
@@ -152,7 +122,6 @@ class SingleCam:
         self.is_recording = False
         self.outVid.release()
         self.cam.EndAcquisition()
-
 
     def device_info(self):
     
@@ -197,50 +166,76 @@ class SingleCam:
 
 class MultiCam:
 
-    def __init__(self, cam_list, time, recording_method = 'continuous'):
+    def __init__(self, cam_list, time, recording_method = 'continous'):
 
         self.cam_list = cam_list
         self.q = []
-        for c in cam_list:
-            self.q.append(Queue(1))
         self.vidPath = config.vidPath
-        self.tREC = time
-        self.method = recording_method
+        self.tREC = time # time to record in seconds
             
-        # if recording_method == 'scheduled':
-        #         self.record = self.scheduled_recording
-        # else:
-        #     self.record = self.continuous_recording
-
-    def REC(self):
-
-        if self.method == 'scheduled':
-            self.scheduled_recording()
-        
+        if recording_method == 'scheduled':
+                self.record = self.scheduled_recording
+                if self.tREC
         else:
-            self.continuous_recording()
+            self.record = self.continuous_recording
 
-        for c in cam_list:
-            c.stop()
+
+    def saveTh(self):
+        print('Recording')
+
+        tREC = int(time) 
+        t0 = time.time()
+
+        
+        for i in range(len(AcoCAMArray.cameras)):
+            AcoCAMArray.cameras[i].folderA = self.folderA
+        
+        for i in range(len(AcoCAMArray.cameras)):
+                AcoCAMArray.cameras[i].RECEVENT = True
+        
+        actT = time.time()
+        while((actT-iniCaptime)<=t2Cap):
+            for c in range (AcoCAMArray.nCam):
+                AcoCAMArray.triggerTH[c].put(True)
+            actT = time.time()
+        
+        for i in range(len(AcoCAMArray.cameras)):
+            AcoCAMArray.cameras[i].RECEVENT = False      
+        sleep(0.5)            
+            
+        print ('Surto saveTh')
 
 
     def continuous_recording(self):
-        t0 = time.time()
-        while(time.time() - t0 <= self.tREC):
-            for c in self.cam_list:
+        self.startTime = time.time()
+        self.endTime = self.startTime + self.time2record
+
+        while self.endTime >= time.time():
+            for c in self.q:
                 c.put(True)
 
 
     def scheduled_recording(self):
-        tf = self.tREC[0]
-        freq = self.tREC[1]
-        next_shot = time.time()
-        t0 = time.time()
+        self.startTime = time.time()
+        self.endTime = self.startTime + self.time2record
+        next_capture = self.
 
-        while(time.time() - t0 <= tf):
-            if time.time() >= next_shot:
-                for c in self.cam_list:
-                    c.put(True)
-                    c.put(False)
-                next_shot += freq
+        while self.endTime >= time.time():
 
+            while
+            for c in self.q:
+                c.put(True)
+
+    
+
+
+def SaveIMG(self,evt):
+        
+        for i in range(len(AcoCAMArray.cameras)):
+            AcoCAMArray.cameras[i].CamPreview = False
+
+        Thread(target=self.saveTh,args=(self.nSec.GetValue(),)).start()
+       
+        evt.Skip()
+        return
+    
