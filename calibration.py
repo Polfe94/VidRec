@@ -71,9 +71,16 @@ def wrkr_stop(key):
 	_Cam.stop()
 	return _Cam.key
 
+def wrkr_wrtBff(key):
+	sleep(.003)
+	ok = _Cam.wrtBff()
+	return (_Cam.key if ok else -1)
 
 
 ''' CAM CLASS '''
+
+
+
 class Cam():
 
 	def __init__(self, key, run):
@@ -166,6 +173,18 @@ class Cam():
 			return cv2.warpPerspective(self.iBuffer[bffPntr], self.hMtx, self.hSize)[c:d, a:b, :]
 		# return cv2.warpPerspective(self.iBuffer[bffPntr], self.hMtx, self.hSize)[c:d, a:b]
 
+	def wrtBff(self):
+	
+		ok, frm = self.vid.read()
+		self.bffPntr = (self.bffPntr +1) %self.bufferSz
+		if ok:
+			self.iBuffer[self.bffPntr] = frm
+			# self.iBuffer[self.bffPntr] = cv2.cvtColor(frm, cv2.COLOR_BGR2GRAY)
+		else:
+			self.iBuffer[self.bffPntr] = np.zeros((self.bffImgSz[1], self.bffImgSz[0], 3))
+			# self.iBuffer[self.bffPntr] = np.zeros((self.bffImgSz[1], self.bffImgSz[0]))
+		return ok
+
 
 
 ''' PREVIOUS CALIBRATION CLASS '''
@@ -206,6 +225,8 @@ class vTuner():
 	def __init__(self, exp='20200310M', expPth=_expPth, calPth=_calPth):
 
 		self.run = calRun(exp, expPth, calPth)
+		self.expPth = expPth
+		self.dtaPth = ''
 		if not self.run: return
 
 		self.viewer = 'vPlayer'
@@ -505,7 +526,7 @@ class vTuner():
 			elif wk in kAdjust:
 				if cam > -1:
 					self.hAdjust(cam, wk)		# adjust homography
-					self.hSet()
+					self.calSet()
 					self.camInfo(cam)
 
 		self.setRes(1)
