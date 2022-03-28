@@ -1,7 +1,9 @@
 # import os
+from copy import deepcopy
 import PySpin
 import sys
 
+from PIL import Image
 import cv2
 # import numpy as np
 
@@ -18,12 +20,14 @@ cam_list = system.GetCameras()
 
 class SingleCam:
 
-    def __init__(self, serial_number, exposure = 40, gain = 2, mode = 'COLOR'):
+    def __init__(self, serial_number, exposure = 40, gain = 2, mode = 'COLOR', resizeFactor = 1):
 
         self.sn = serial_number
         self.exposure = float(exposure)
         self.gain = float(gain)
+        self.resizeFactor = resizeFactor
         
+        self.im_count = 0
 
         self.vidPath = config.vidPath
         self.vidName = config.vidName + '_' + str(self.sn) + '.avi'
@@ -33,12 +37,16 @@ class SingleCam:
         self.is_recording = False
         self.t = []
         self.tREC = 0
-        self.q = Queue(1)
+        self.q = Queue(1000)
+        self.cams_ready = False
+        self.trigger = Queue(1)
+        # self.rdyQ.put(False)
+        self.mode = mode
 
-        if mode == 'BW' or mode == 'BLACK_AND_WHITE':
-            self.getImg = self.bwImg
-        else:
-            self.getImg = self.colImg
+        # if mode == 'BW' or mode == 'BLACK_AND_WHITE':
+        #     self.getImg = self.bwImg
+        # else:
+        #     self.getImg = self.colImg
 
     def init_cam(self):
 
@@ -59,7 +67,10 @@ class SingleCam:
         # set RGB mode
         try:
             if self.cam.PixelFormat.GetAccessMode() == PySpin.RW:
-                self.cam.PixelFormat.SetValue(PySpin.PixelColorFilter_BayerBG) #COLOR RGB
+                if self.mode == 'COLOR':
+                    self.cam.PixelFormat.SetValue(PySpin.PixelColorFilter_BayerBG) #COLOR RGB
+                else:
+                    self.cam.PixelFormat.SetValue(PySpin.PixelFormat_Mono8)
                 # print("Pixel format set to %s..." % self.cam.PixelFormat.GetCurrentEntry().GetSymbolic())
         except PySpin.SpinnakerException as ex:
             print("Error: %s" % ex)
@@ -72,7 +83,7 @@ class SingleCam:
 
         """Configuracio QuickSpin"""
 
-        '''
+
         """Exposure Time"""
         if self.cam.ExposureAuto is None or self.cam.ExposureAuto.GetAccessMode() != PySpin.RW:
             print("Unable to disable automatic exposure. Aborting...")
@@ -85,7 +96,60 @@ class SingleCam:
         """Gain"""
         self.cam.GainAuto.SetValue(PySpin.GainAuto_Off)
 
+        """Cam resolution"""
+        if self.cam.Width.GetAccessMode() == PySpin.RW and self.cam.Width.GetInc() != 0 and self.cam.Width.GetMax != 0:
+            self.cam.Width.SetValue(int(self.resizeFactor * config.vidRes[0]))
         
+        # node_offset_x = PySpin.CIntegerPtr(nodemap.GetNode('OffsetX'))
+        # if PySpin.IsAvailable(node_offset_x) and PySpin.IsWritable(node_offset_x):
+
+        #     node_offset_x.SetValue(node_offset_x.GetMin())
+
+        # node_offset_y = PySpin.CIntegerPtr(nodemap.GetNode('OffsetY'))
+        # if PySpin.IsAvailable(node_offset_y) and PySpin.IsWritable(node_offset_y):
+
+        #     node_offset_y.SetValue(node_offset_y.GetMin())
+
+        # if self.cam.Height.GetAccessMode() == PySpin.RW and self.cam.Height.GetInc() != 0 and self.cam.Height.GetMax != 0:
+        #     self.cam.Height.SetValue(int(self.resizeFactor * config.vidRes[1]))
+
+
+ 
+
+
+        def grab_next_image_by_trigger(nodemap):
+            """
+            This function retrieves a single image using the trigger. In this example,
+            only a single image is captured and made available for acquisition - as such,
+            attempting to acquire two images for a single trigger execution would cause
+            the example to hang. This is different from other examples, whereby a
+            constant stream of images are being captured and made available for image
+            acquisition.
+
+            :param nodemap: Device nodemap to retrieve images from.
+            :type nodemap: INodeMap
+            :return: True if successful, False otherwise
+            :rtype: bool
+            """
+            try:
+                result = True
+
+                # Execute software trigger
+                software_trigger_command = PySpin.CCommandPtr(nodemap.GetNode('TriggerSoftware'))
+                if not PySpin.IsAvailable(software_trigger_command) or not PySpin.IsWritable(software_trigger_command):
+                    print('Unable to execute trigger. Aborting...\n')
+                    return False
+
+                software_trigger_command.Execute()
+
+            except PySpin.SpinnakerException as ex:
+                print('Error: %s' % ex)
+                result = False
+
+            return result
+
+
+        '''
         # MANUAL WHITE BALANCE
         self.cam.BalanceWhiteAuto.SetValue(PySpin.BalanceWhiteAuto_Off, False)
         node_BR = PySpin.CFloatPtr(nodemap.GetNode("BalanceRatio"))
@@ -96,34 +160,64 @@ class SingleCam:
         '''
         
 
-        # self.setExp()
-        # self.setGain()
+        self.setExp(10)
+        self.setGain(5)
 
-    def bwImg(self):
+    def getImg(self):
         img = self.cam.GetNextImage()
-        return img.Convert(PySpin.PixelFormat_Mono8, PySpin.NEAREST_NEIGHBOR).GetNDArray()
-
-    def colImg(self):
-        img = self.cam.GetNextImage()
-        return img.Convert(PySpin.PixelFormat_BGR8, PySpin.NEAREST_NEIGHBOR).GetNDArray()
+        result = img.GetNDArray()
+        img.Release()
+        self.frame_counter += 1
+        return result
 
     def update(self):
-        
+
+        while self.cams_ready == False:
+            next
+
+        # self.frame = self.getImg()
+        self.t0 = time.time()
+        self.finish_time = self.t0 + self.tREC
+
         while self.is_recording:
+            if self.trigger.full():
+                ret = self.trigger.get()
 
-            if self.q.full() == True:
-
-                img = self.q.get()
-                self.t.append(time.time() - self.t0) ## real "fps"
-                self.outVid.write(img)
-
-            else:
                 self.q.put(self.getImg())
+            
+            # self.vidREC()
+            # img = self.q.get()
+            # self.t.append(time.time() - self.t0) ## real "fps"
+            # self.outVid.write(img)
+        self.stop()
 
-            if time.time() > self.finish_time:
-                self.is_recording = False
+    def videoThread(self):
+        for t in range(3):
+            Thread(target = self.vidREC, args = (), daemon = True).start()
+        # self.vidThread = Thread(target = self.vidREC, args = (), daemon = True)
+        # self.vidThread.start()
 
-                    
+
+    def vidREC(self):
+
+        while self.cams_ready == False:
+            next
+
+        while True:
+
+            # self.im_count += 1
+            img = self.q.get()
+
+            cv2.imwrite('Frame_%s_cam_%s.tif' % (self.frame_counter, self.sn), img)
+
+            if self.is_recording == False and self.q.empty():
+            # if self.is_recording == False and len(self.q) == 0:
+                break
+
+            # img.Save('Frame_%s_cam_%s.tif' % (self.im_count, self.sn))
+            # img.save('Frame_%s_cam_%s.tif' % (self.im_count, self.sn))
+            # cv2.imwrite('Frame_%s_cam_%s.png' % (self.im_count, self.sn), img, [cv2.IMWRITE_PNG_COMPRESSION, 0])
+
     def start(self):
     
         self.init_cam()
@@ -138,12 +232,11 @@ class SingleCam:
         self.outVid = cv2.VideoWriter(self.vidPath + self.vidName,
         cv2.VideoWriter_fourcc('X','V','I','D'), self.fps, config.vidRes, 0)
 
-        t = Thread(target = self.update, args = ())
-        t.daemon = True
-
-        self.t0 = time.time()
-        self.finish_time = self.t0 + self.tREC
+        t = Thread(target = self.update, args = (), daemon = True)
+        # videoThread = Thread(target = self.vidREC, args = (), daemon = True)
+        
         t.start()
+        # videoThread.start()
 
         return self
 
@@ -175,10 +268,10 @@ class SingleCam:
             print("Error: %s" % ex.message)
 
     
-    def setExp(self):
+    def setExp(self, exposure):
 
         try:
-            exposure = min(self.cam.ExposureTime.GetMax(),(self.exposure))
+            exposure = min(self.cam.ExposureTime.GetMax(),(exposure*1000))
             if exposure < 20:
                 exposure = 20
             self.cam.ExposureTime.SetValue(exposure)
@@ -186,10 +279,10 @@ class SingleCam:
             print("Error: %s" % ex.what())
 
 
-    def setGain(self):
+    def setGain(self, gain):
 
         try:
-            gain = min(self.cam.Gain.GetMax(),self.gain)
+            gain = min(self.cam.Gain.GetMax(),gain)
             self.cam.Gain.SetValue(gain)
         except PySpin.SpinnakerException as ex:
             print("Error: %s" % ex.what())

@@ -14,11 +14,9 @@ from multiprocessing import Pool
 ''' GLOBAL VARIABLES '''
 _nCams, _nRows, _nCols = 12, 4, 3
 _camLayout = np.arange(_nCams).reshape(_nRows, _nCols)
-_tblSzmm = (2000, 2000)
+_tblSzmm = (2400, 2400) # (2000, 2000)
 _vwrImgSz = (900, 900)
-_px2mm = 0.17857 ## NEED TO CALCULATE "DE NOVO"
-_mm2px = 1 /_px2mm
-#_mm2px = 5.68
+_mm2px = 5.35
 _tblImgSz = (int(_tblSzmm[0] *_mm2px), int(_tblSzmm[1] *_mm2px))
 _rawImgSz = (4000, 3000)
 _bffImgSz = (800, 600)
@@ -354,6 +352,17 @@ class vTuner():
 		srcCoords = np.zeros(8).reshape(4, 2)
 		camRows, camCols = [], []
 
+		'''
+		1. Indicate the top-left visible cell. Introduce x,y coordinates of the top-left
+		corner of the "chess-pattern" square.
+		2. Repeat the process with the top-right, bottom-left, bottom-right cells, introducing
+		the x,y coordinates of the top-left corner always!
+		3. Once the calibration by camera is finished (run steps 1 and 2 for each camera)
+		call the "tune" method to adjust the homografy.
+		4. Call "newCalSave" method to store the new calibration.
+		'''
+
+		# any visible (even partially) cell (if possible, the closest to the edge of the cam)
 		for c, name in enumerate(['--- top-left', '--- top-rght', '--- btm-left', '--- btm-rght']):
 
 			# reference Cell
@@ -368,7 +377,7 @@ class vTuner():
 
 			# image corners' coordinates (pixels)
 			while True:
-				refCoords = input(name + ' (x, y) coords.: ')
+				refCoords = input(name + ' (x, y) coords. for top left corner: ')
 				if all([x.strip(' ').isnumeric() for x in refCoords.split(',')]): break
 			srcCoords[c] = refCoords.split(',')
 
@@ -512,6 +521,8 @@ class vTuner():
 			if wk == 32:						# quit (spacebar)
 				break
 			elif wk in [186, 49, 50, 51, 52, 53, 54, 55, 56, 57, 48, 39]:
+    			# The row of numbers in the keyboard (below the F1, F2, ... keys)
+    			# "º","1","2","3","4","5","6","7","8","9","0","'"
 				cam = [186, 49, 50, 51, 52, 53, 54, 55, 56, 57, 48, 39].index(wk)
 				self.camInfo(cam)
 			elif wk == 99:						# focus on corner (c)
