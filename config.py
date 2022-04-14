@@ -1,19 +1,26 @@
 '''CONFIG'''
-vidPath = '/path/to/save/data/to'
+vidPath = '/home/bigtracker/'
 vidRes = (4000, 3000) # output video resolution 
 vidName = 'test'
 
-# white balance values
-_balanceRed = 0 # 2.2799999713897705 # celegans
-_balanceBlue = 0 # 1.1799999475479126 # celegans
+''' DEFAULT CAMERA PARAMETERS '''
 
-## UNCHECKED!
-exposure = 40
-gain = 1.0
+# Note: this parameters were set with minimal camera aperture
+exposure = 10.0
+gain = 5.0
+mode = 'BW' # black and white recording
+resize = 1 # factor (0 to 1) to resize output image (i.e. 0.5 * (4000, 3000) = (2000, 1500))
+
+# white balance values // ignored
+# _balanceRed = 2.2799999713897705 # celegans
+# _balanceBlue = 1.1799999475479126 # celegans
 
 
-# key is the order, from topleft to bottom right
-# the value is the serial number of the cam
+''' CAMERA ARRAY SERIAL NUMBERS'''
+# Note: top left is the nearest cam to the lab door
+
+# keys = cam order (top-left to bottom-right)
+# values = serial numbers
 CamArray = {
     0: '17215390',
     1: '17215425',
