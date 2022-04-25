@@ -1,7 +1,7 @@
 # from tokenize import Single
 import PySpin
 import sys
-# import numpy as np
+import numpy as np
 from PIL import Image
 
 import cv2
@@ -10,7 +10,6 @@ import cv2
 from queue import Queue
 from threading import Thread
 import time
-
 
 sys.path.append('/home/bigtracker/VidRec/')
 
@@ -27,15 +26,15 @@ def clear_cams():
 
 
 ''' ARGUMENT PARSER '''
-mods = argparse(sys.argv[1:])
+# mods = argparse(sys.argv[1:])
 
-for i in mods:
-    setattr(config, i, mods[i])
+# for i in mods:
+#     setattr(config, i, mods[i])
 
 ''' SINGLE CAMERA'''
 class SingleCam:
 
-    def __init__(self, serial_number, fps = 5):
+    def __init__(self, serial_number, fps = 15):
 
         vidExtension = '.avi'
         # vidExtension = '.mp4'
@@ -52,8 +51,9 @@ class SingleCam:
         self.fps = fps
 
         # image obtention
+        self.frame_counter = 0
         self.is_recording = False
-        self.q = Queue(30)
+        self.q = Queue(100) # Queue(30)
         self.tStart = -1
 
 
@@ -105,12 +105,13 @@ class SingleCam:
     def get_frame(self):
         im = self.cam.GetNextImage()
         t = time.time()
+        self.frame_counter += 1
         im.Release()
-        return self.sn, im, t
+        return self.sn, im, self.frame_counter, t
 
     def toQ(self):
 
-        self.fps = self.set_fps()
+        # self.fps = self.set_fps()
 
         self.outVid = cv2.VideoWriter(self.vidPath + self.vidName,
         cv2.VideoWriter_fourcc('X','V','I','D'), self.fps, config.vidRes, 0)
@@ -130,11 +131,15 @@ class SingleCam:
         while self.is_recording:
 
             try:
-                result = self.q.get()
+                result = self.q.get(1000)
                 queue.put(result)
 
             except:
                 continue
+
+        # while not self.q.empty():
+        #     result = self.q.get()
+        #     queue.put(result)
 
     
     def set_fps(self):
@@ -261,11 +266,22 @@ class MultiCam:
         # else:
         #     self.fps = 1/time['every']
 
+
+        # q = []
+        # for i in range(len(self.cam_list)):
+        #     a = Queue(1)
+        #     a.put(0)
+        #     q.append(a)
+        
+        # self.frame_dict = dict(zip([c.sn for c in self.cam_list], q))
+
         self.frame_dict = dict(zip([c.sn for c in self.cam_list], [0] * len(self.cam_list)))
-        self.times_dict = dict(zip([c.sn for c in self.cam_list], [(-1, -1)] * len(self.cam_list)))
+
+        # clock: last time difference, frame
+        self.times_dict = dict(zip([c.sn for c in self.cam_list], [(-1, -1, -1, -1)] * len(self.cam_list)))
         self.fps = fps
         self.vidPath = config.vidPath
-        self.q = Queue(150)
+        self.q = Queue(500)
         self.frames = Queue(100)
         self.tREC = time
 
@@ -286,39 +302,44 @@ class MultiCam:
     def start_cams(self):
         
         self.running = True
-        tStart = time.time() + 10 # + 30
+        tStart = time.time() +15 # 30
         for c in self.cam_list:
             c.fps = self.fps
             c.tStart = tStart
             c.start()
             Thread(target = c.fromQ, args = (self.q, ), daemon = True).start()
             Thread(target = self.choose_frame, args = (), daemon = True).start()
-            for i in range(2):
+            for i in range(4):
                 Thread(target = self.store_frames, args = (), daemon = True).start()
 
         return tStart
 
 
     def choose_frame(self):
+
         while True:
-            if not self.running:
+            if not self.running and self.q.empty():
                 break
 
             try:
-                sn, im, t = self.q.get(1000)
-                self.frames.put((sn, im, t))
+                sn, im, f, t = self.q.get(1000)
+                # self.frames.put((sn, im, t))
             
             except:
                 continue
 
-            # if (abs(t - self.nextframe) < abs(self.times_dict[sn][0] - self.nextframe)):
-            #     self.times_dict[sn] = (t, im)
+            # dif = t - self.nextframe[sn][0]
+            dif = t - self.nextframe
 
-            # else:
-            #     if self.times_dict[sn][1] != -1:
-            #         self.frames.put((sn, im, t))
-            #         self.times_dict[sn] = (-1, -1)
+            if abs(dif) < abs(self.times_dict[sn][0]):
+                self.times_dict[sn] = (dif, im, f, t)
 
+            else:
+                self.frames.put((sn, self.times_dict[sn][1], self.times_dict[sn][2], self.times_dict[sn][3]))
+                # self.frames.put((sn, im, f, t))
+                # self.frames.put((sn, self.times_dict[sn][1], self.times_dict[sn][2]))
+                self.times_dict[sn] = (dif, im, f, t) 
+                # self.nextframe[sn].pop(0) # remove time mark
 
 
     def store_frames(self):
@@ -327,8 +348,12 @@ class MultiCam:
                 break
 
             try:
-                sn, im, t = self.frames.get(1000)
+                sn, im, f, t = self.frames.get(1000)
+
                 self.frame_dict[sn] += 1
+                # frame = self.frame_dict[sn].get()
+                # self.frame_dict[sn].put(frame + 1)
+                
                 a = Image.fromarray(im.GetNDArray())
                 a.save(self.vidPath + 'cam_%s_frame_%s_t_%s.tif' % (sn, self.frame_dict[sn], t))
             
@@ -361,25 +386,31 @@ class MultiCam:
 
         tEnd = tStart + self.tREC['for']
 
+
+        # self.nextframe = dict(zip([c.sn for c in self.cam_list],
+        # [list(np.arange(tStart, tEnd, 1/ self.fps))] * len(self.cam_list)))
+
         self.nextframe = tStart
 
         # stop main thread until cams are finished recording
         while tEnd > time.time():
+
             if time.time() < self.nextframe:
                 continue
 
-            self.nextframe += 1 / self.fps
+            else:
+                self.nextframe += 1/ self.fps
 
-
+        # deinit system
+        time.sleep(0.2)
         self.running = False
 
         self.stop_video()
-
-        time.sleep(2)
+        time.sleep(0.2)
 
         self.stop_cams()
 
-        # # time.sleep(5)
+        # time.sleep(1)
         # self.stop()
 
 # if __name__ == '__main__':
