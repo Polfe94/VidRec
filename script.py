@@ -1,6 +1,8 @@
+# from tokenize import Single
 import PySpin
 import sys
-import numpy as np
+# import numpy as np
+from PIL import Image
 
 import cv2
 # from vidgear.gears import WriteGear
@@ -13,6 +15,7 @@ import time
 sys.path.append('/home/bigtracker/VidRec/')
 
 import config
+from argparser import argparse
 
 system = PySpin.System.GetInstance()
 cam_list = system.GetCameras()
@@ -24,8 +27,10 @@ def clear_cams():
 
 
 ''' ARGUMENT PARSER '''
-def arg_parse():
-    pass
+mods = argparse(sys.argv[1:])
+
+for i in mods:
+    setattr(config, i, mods[i])
 
 ''' SINGLE CAMERA'''
 class SingleCam:
@@ -47,12 +52,9 @@ class SingleCam:
         self.fps = fps
 
         # image obtention
-        self.frame_counter = 0
         self.is_recording = False
-        self.t = []
         self.q = Queue(30)
         self.tStart = -1
-
 
 
     def init_cam(self):
@@ -100,182 +102,50 @@ class SingleCam:
         """Cam resolution"""
         # to be implemented
 
-    def get(self):
+    def get_frame(self):
         im = self.cam.GetNextImage()
         t = time.time()
         im.Release()
-        return im, t
+        return self.sn, im, t
 
     def toQ(self):
 
-        while self.tStart < time.time():
-            continue
+        self.fps = self.set_fps()
+
+        self.outVid = cv2.VideoWriter(self.vidPath + self.vidName,
+        cv2.VideoWriter_fourcc('X','V','I','D'), self.fps, config.vidRes, 0)
+
+        # wait until all cameras are ready
+        time.sleep(self.tStart - time.time())
 
         while self.is_recording:
 
             if self.q.full():
                 foo = self.q.get()
 
-            self.q.put(self.get())
+            self.q.put(self.get_frame())
 
-    def fromQ(self):
-        
+    def fromQ(self, queue):
+
         while self.is_recording:
+
             try:
-                im, t = self.q.get()
-                self.t.append(t)
+                result = self.q.get()
+                queue.put(result)
+
             except:
                 continue
 
+    
+    def set_fps(self):
+        counter = 0
+        tStart = time.time()
+        t = 5
+        while tStart + t > time.time():
+            foo = self.get_frame()
+            counter += 1
 
-    def getImg(self):
-        img = self.cam.GetNextImage()
-        self.t.append(time.time())
-        self.frame_counter += 1
-        result = img.GetNDArray()
-        img.Release()
-        return result
-
-    def update(self):
-        # warm up to wait for all cams to init
-        while self.tStart > time.time():
-            continue
-
-        nextframe = self.tStart
-        while self.is_recording:
-
-            if nextframe <= time.time():
-                img = self.getImg()
-                self.outVid.write(img)
-
-                nextframe += 1/self.fps
-
-                t2sleep = nextframe - time.time()
-                if t2sleep > 0:
-                    time.sleep(t2sleep)
-
-
-        # if hasattr(self, 'clock'):
-
-        #     nextframe = self.tStart
-
-        #     while self.is_recording:
-
-        #         if time.time() > nextframe:
-
-        #             # capture image
-        #             img = self.getImg()
-        #             self.outVid.write(img)
-        #             # self.q.queue.appendright(img)
-        #             del img
-
-        #             # set next image timer
-        #             nextframe += self.clock
-
-        # else:
-
-        #     while self.is_recording:
-        #         self.ready = True
-
-        #         try:
-        #             flag = self.q.get()
-
-        #         except:
-        #             continue
-
-        #         if flag:
-        #             # capture image
-        #             try:
-        #                 img = self.getImg()
-        #                 # self.outVid.write(img)
-        #                 # self.q.queue.appendright(img)
-        #                 del img
-        #                 self.ready = False
-
-        #             except:
-        #                 continue
-                
-
-    # def update(self):
-
-    #     # warm up to wait for all cams to init
-    #     while self.tStart > time.time():
-    #         continue
-
-    #     self.videoThread()
-
-    #     if hasattr(self, 'clock'):
-
-    #         nextframe = self.tStart
-
-    #         while self.is_recording:
-
-    #             if time.time() > nextframe:
-
-    #                 # capture image
-    #                 img = self.getImg()
-    #                 self.q.put(img)
-    #                 # self.q.queue.appendright(img)
-    #                 del img
-
-    #                 # set next image timer
-    #                 nextframe += self.clock
-
-    #     else:
-
-    #         while self.is_recording:
-
-    #                 # capture image
-    #                 try:
-    #                     img = self.getImg()
-    #                     self.q.put(img)
-    #                     # self.q.queue.appendright(img)
-    #                     del img
-
-    #                 except:
-    #                     continue
-
-
-    def videoThread(self):
-
-        Thread(target = self.vidREC, args = (), daemon = True).start()
-
-
-    def save_img(self):
-
-        img = self.q.get()
-        cv2.imwrite('frame_%s_time_%s_cam_%s.tif' % (self.frame_counter, self.t[self.frame_counter], self.sn), img)
-        self.frame_counter += 1
-
-
-
-    def vidREC(self):
-
-        while True:
-            im = self.q.get()
-
-            if im != -1:
-                self.outVid.write(im)
-
-
-        # while self.is_recording:
-
-
-        #     try:
-        #         frame = self.q.get()
-        #         self.outVid.write(frame)
-        #         del frame
-
-        #     except:
-        #         continue
-
-            # try:
-            #     frame = self.q.queue.pop(0)
-            #     self.outVid.write(frame)
-            #     del frame
-
-            # except:
-            #     continue
+        return int(round(counter / t))
 
     def start(self):
     
@@ -285,34 +155,11 @@ class SingleCam:
 
         print('Cam %s initialized' % self.sn)
         Thread(target = self.toQ, args = (), daemon = True).start()
-        Thread(target = self.fromQ, args = (), daemon = True).start()
-
-        self.outVid = cv2.VideoWriter(self.vidPath + self.vidName,
-        cv2.VideoWriter_fourcc('X','V','I','D'), self.fps, config.vidRes, 0)
-        # self.videoThread()
-
-    # def start(self):
-
-    #     self.init_cam()
-    #     self.is_recording = True
-    #     self.cam.BeginAcquisition()
-
-    #     print('Cam %s initialized' % self.sn)
-
-    #     self.outVid = cv2.VideoWriter(self.vidPath + self.vidName,
-    #     cv2.VideoWriter_fourcc('X','V','I','D'), self.fps, config.vidRes, 0)
-    #     self.videoThread()
-
-        # output_params = {'-input_framerate': self.fps, '-preset': 'ultrafast',
-        # '-vcodec': 'libx265', '-crf': 17}
-        # self.outVid = WriteGear(self.vidPath + self.vidName, **output_params)
-        # Thread(target = self.update, args = (), daemon = True).start()
 
     def stop(self):
 
         self.is_recording = False
         self.outVid.release()
-        # self.outVid.close()
         self.cam.EndAcquisition()
 
     def setExp(self, exposure):
@@ -337,59 +184,90 @@ class SingleCam:
 ''' MULTI CAMERA CLASS '''
 class MultiCam:
 
-    def __init__(self, cam_list = [], time = {'for': 10, 'every': 0}, params = {}):
+    def __init__(self, cam_list = [], fps = 15, time = {'for': 10, 'every': 0}, params = {}):
 
         ''' INITIALIZE CAMERAS '''
         self.cam_list = []
 
-        if len(cam_list):
+        if type(cam_list) == list:
 
-            if(all(type(c) == SingleCam for c in cam_list)):
-                self.cam_list = cam_list
+            if len(cam_list):
 
-            if all(i in config.CamArray.values() for i in cam_list):
+                if all(hasattr(c, 'sn') for c in cam_list):
+                    self.cam_list = cam_list
 
-                for i in range(len(cam_list)):
-                    cam = SingleCam(cam_list[i])
-                    self.cam_list.append(cam)
+                elif all(i in config.CamArray.values() for i in cam_list):
 
-            elif all(i < len(config.CamArray) for i in cam_list):
+                    for i in range(len(cam_list)):
+                        cam = SingleCam(cam_list[i])
+                        self.cam_list.append(cam)
 
-                for i in range(len(cam_list)):
-                    cam = SingleCam(config.CamArray[cam_list[i]])
-                    self.cam_list.append(cam)
+                elif all(i < len(config.CamArray) for i in cam_list):
 
+                    for i in range(len(cam_list)):
+                        cam = SingleCam(config.CamArray[cam_list[i]])
+                        self.cam_list.append(cam)
+
+            else:
+
+                for i in config.CamArray:
+                    self.cam_list.append(SingleCam(config.CamArray[i]))
+
+                print('+++ INITIALIZING ALL AVAILABLE CAMERAS +++')
         else:
-
-            for i in config.CamArray:
-                self.cam_list.append(SingleCam(config.CamArray[i]))
-
-            print('+++ INITIALIZING ALL AVAILABLE CAMERAS +++')
+            print('+++ ERROR: No valid cameras! +++')
+            sys.exit(1)
 
         ''' CAMERA PARAMETERS '''
 
         if type(params) is not dict:
             params = {}
         if 'exposure' not in params.keys():
-            params['exposure'] = [config.exposure] * len(self.cam_list)
+
+            if type(config.exposure) == list:
+                if len(config.exposure) == len(self.cam_list):
+                    params['exposure'] = config.exposure
+                else:
+                    params['exposure'] = [config.exposure[0]] * len(self.cam_list)
+            else:
+                params['exposure'] = [config.exposure] * len(self.cam_list)
         if 'gain' not in params.keys():
-            params['gain'] = [config.gain] * len(self.cam_list)
+            
+            if type(config.gain) == list:
+                if len(config.gain) == len(self.cam_list):
+                    params['gain'] = config.gain
+                else:
+                    params['gain'] = [config.gain[0]] * len(self.cam_list)
+            else:
+                params['gain'] = [config.gain] * len(self.cam_list)
+
         if 'mode' not in params.keys():
-            params['mode'] = [config.mode] * len(self.cam_list)
+
+            if type(config.mode) == list:
+
+                if config.mode[0] == 'COLOR':
+                    params['mode'] = ['COLOR'] * len(self.cam_list)
+
+                else:
+                    params['mode'] = ['BW'] * len(self.cam_list)
+
 
         self.params = params
         self.init_params()
 
-        if time['every'] == 0:
-            self.fps = 4 # // REPLACE
+        # if time['every'] == 0:
+        #     self.fps = 4 # // REPLACE
 
-        else:
-            self.fps = 1/time['every']
+        # else:
+        #     self.fps = 1/time['every']
 
+        self.frame_dict = dict(zip([c.sn for c in self.cam_list], [0] * len(self.cam_list)))
+        self.times_dict = dict(zip([c.sn for c in self.cam_list], [(-1, -1)] * len(self.cam_list)))
+        self.fps = fps
         self.vidPath = config.vidPath
-
+        self.q = Queue(150)
+        self.frames = Queue(100)
         self.tREC = time
-        self.trigger = [False] * len(self.cam_list)
 
     def init_params(self):
 
@@ -406,39 +284,58 @@ class MultiCam:
                     setattr(self.cam_list[i], p, self.params[p][-1])
 
     def start_cams(self):
-
-        tStart = time.time() + 30
+        
+        self.running = True
+        tStart = time.time() + 10 # + 30
         for c in self.cam_list:
             c.fps = self.fps
             c.tStart = tStart
             c.start()
-            # Thread(target = self.clock_trigger, args = (), daemon = True).start()
-            # c.videoThread()
+            Thread(target = c.fromQ, args = (self.q, ), daemon = True).start()
+            Thread(target = self.choose_frame, args = (), daemon = True).start()
+            for i in range(2):
+                Thread(target = self.store_frames, args = (), daemon = True).start()
 
         return tStart
 
-    # def start_cams(self):
-    #     tStart = time.time() + 10
-    #     for c in self.cam_list:
-    #         c.start()
 
-    #     return tStart
+    def choose_frame(self):
+        while True:
+            if not self.running:
+                break
 
-    # def grab_image(self, cam):
-    #     im = cam.getImg()
-    #     return im
-        # self.cam_list[cam].outVid.write(im)
+            try:
+                sn, im, t = self.q.get(1000)
+                self.frames.put((sn, im, t))
+            
+            except:
+                continue
 
-    # def clock_trigger(self):
-    #     while self.running:
-    #         for i in range(len(self.cam_list)):
-    #             self.trigger[i] = self.cam_list[0].ready
+            # if (abs(t - self.nextframe) < abs(self.times_dict[sn][0] - self.nextframe)):
+            #     self.times_dict[sn] = (t, im)
 
-    #         if all(self.trigger):
-    #             for c in self.cam_list:
-    #                 c.q.put(True)
-    #             self.trigger = [False] * len(self.cam_list)
+            # else:
+            #     if self.times_dict[sn][1] != -1:
+            #         self.frames.put((sn, im, t))
+            #         self.times_dict[sn] = (-1, -1)
 
+
+
+    def store_frames(self):
+        while True:
+            if not self.running and self.frames.empty():
+                break
+
+            try:
+                sn, im, t = self.frames.get(1000)
+                self.frame_dict[sn] += 1
+                a = Image.fromarray(im.GetNDArray())
+                a.save(self.vidPath + 'cam_%s_frame_%s_t_%s.tif' % (sn, self.frame_dict[sn], t))
+            
+            except:
+                continue
+
+            
     def stop_video(self):
         for c in self.cam_list:
             c.is_recording = False
@@ -455,6 +352,7 @@ class MultiCam:
         del self.cam_list
         clear_cams()
 
+
     def main(self):
 
         tStart = self.start_cams()
@@ -463,9 +361,17 @@ class MultiCam:
 
         tEnd = tStart + self.tREC['for']
 
+        self.nextframe = tStart
+
         # stop main thread until cams are finished recording
         while tEnd > time.time():
-            continue
+            if time.time() < self.nextframe:
+                continue
+
+            self.nextframe += 1 / self.fps
+
+
+        self.running = False
 
         self.stop_video()
 
