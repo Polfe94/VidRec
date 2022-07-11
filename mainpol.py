@@ -216,7 +216,7 @@ class MainProcess():
             frameNumber += 1
             currTime = time.time() - startTime
             
-        print('Finished recording, mean FPS = %s' % frameNumber / recTime)
+        print('Finished recording, mean FPS = %s' % str(frameNumber / recTime))
         frameTimes = np.array([_Cam.frameTimes for _Cam in self.camList])
         print(frameTimes.shape[1] /recTime)
         print(np.mean(np.max(frameTimes, axis = 0) -np.min(frameTimes, axis = 0)))
