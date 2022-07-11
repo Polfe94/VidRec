@@ -36,6 +36,22 @@ class Cam():
         self.exposure = config.exposure
         self.gain = config.gain
 
+    def setExp(self, exposure):
+    
+        try:
+            exposure = min(self.ptr.ExposureTime.GetMax(),(exposure*1000))
+            self.ptr.ExposureTime.SetValue(exposure)
+        except PySpin.SpinnakerException as ex:
+            print("Error: %s" % ex.what())
+
+    def setGain(self, gain):
+
+        try:
+            gain = min(self.ptr.Gain.GetMax(),gain)
+            self.ptr.Gain.SetValue(gain)
+        except PySpin.SpinnakerException as ex:
+            print("Error: %s" % ex.what())
+
     def start(self):
         
         self.ptr = _cam_list.GetBySerial(self.sn)
@@ -103,39 +119,28 @@ class Cam():
         
         while self.running:
             while not self.trigger:
-                time.sleep(0.005)
+                time.sleep(0.001)
+            t = time.time()
             imgPtr = self.ptr.GetNextImage()
-            self.Q.put((self.camNum, time.time(), imgPtr))
+            imgfrm = imgPtr.GetNDArray()
+            imgPtr.Release()
+            self.Q.put((self.camNum, t, imgfrm))
             self.trigger = False
 
-    def setExp(self, exposure):
-    
-        try:
-            exposure = min(self.ptr.ExposureTime.GetMax(),(exposure*1000))
-            self.ptr.ExposureTime.SetValue(exposure)
-        except PySpin.SpinnakerException as ex:
-            print("Error: %s" % ex.what())
+class Vid():
 
-    def setGain(self, gain):
+    def __init__(self, vidNum, xVids, Q):
 
-        try:
-            gain = min(self.ptr.Gain.GetMax(),gain)
-            self.ptr.Gain.SetValue(gain)
-        except PySpin.SpinnakerException as ex:
-            print("Error: %s" % ex.what())
+        self.vidNum = vidNum
+        self.camNum = self.vidNum //xVids
+        self.sn = config.CamArray[self.camNum]
+        self.vidSize = (config.vidRes[0], int(config.vidRes[1] /xVids))
 
-class FrameWriter():
-
-    def __init__(self, camNum, Q):
-
-        self.sn = config.CamArray[camNum]
-        self.camNum = camNum
         self.Q = Q
 
         self.fps = 15
-        self.videoName = '%s/%s%2d.avi' %(_videoPath, _videoName, self.camNum)
-        self.outVid = cv2.VideoWriter(self.videoName, cv2.VideoWriter_fourcc('X','V','I','D'), self.fps, config.vidRes, 0)
-        # self.outVid = cv2.VideoWriter(self.videoName, 0, self.fps, config.vidRes, 0)
+        self.videoName = '%s/%s_%s%s.avi' %(_videoPath, _videoName, str(self.camNum).zfill(2), str(self.vidNum).zfill(2))
+        self.outVid = cv2.VideoWriter(self.videoName, cv2.VideoWriter_fourcc('X','V','I','D'), self.fps, self.vidSize, 0)
 
     def start(self):
                 
@@ -165,18 +170,19 @@ class FrameWriter():
 
 class MainProcess():
 
-    def __init__(self, nCams):
+    def __init__(self, nCams = 12, xVids = 2):
 
-        self.nCams = nCams
-        self.camList = []
-        self.masterQ = [Queue(1) for k in range(self.nCams)]
-        self.ptrQ = [Queue(100) for k in range(self.nCams)]
+        self.nCams, self.xVids = nCams, xVids
+        self.camList, self.vidList = [], []
+
+        self.camsQ = [Queue(1) for k in range(self.nCams)]
+        self.vidsQ = [Queue(100) for k in range(self.nCams *self.xVids)]
 
     def start(self):
 
-        self.camList = [Cam(k, self.masterQ[k]).start() for k in range(self.nCams)]
+        self.camList = [Cam(k, self.camsQ[k]).start() for k in range(self.nCams)]
         print(len(self.camList))
-        self.frameWriterList = [FrameWriter(k, self.ptrQ[k]).start() for k in range(self.nCams)]
+        self.vidList = [Vid(v, self.xVids, self.vidsQ[v]).start() for v  in range(self.nCams *self.xVids)]
 
     def rec(self, recTime = 900):
 
@@ -187,20 +193,22 @@ class MainProcess():
         while frameNumber <= recTime:
 
             [_Cam.getFrame() for _Cam in self.camList]
-
-            while not all([q.qsize() for q in self.masterQ]):
+            while any([_Cam.trigger for _Cam in self.camList]):
                 time.sleep(0.001)
 
             minTime, maxTime = time.time(), 0
-            for Q in self.masterQ:
-                camNum, frameTime, ptr = Q.get()
-                self.ptrQ[camNum].put(ptr.GetNDArray())
-                ptr.Release()
+            for Q in self.camsQ:
+                camNum, frameTime, frame = Q.get()
+                # self.vidsQ[camNum *self.xVids].put(frame[:1500, :])
+                # self.vidsQ[camNum *self.xVids +1].put(frame[1500:, :])
+                self.vidsQ[camNum *self.xVids].put(frame[:1000, :])
+                self.vidsQ[camNum *self.xVids +1].put(frame[1000:2000:, :])
+                self.vidsQ[camNum *self.xVids +2].put(frame[2000:, :])
                 if frameTime < minTime: minTime = frameTime
                 if frameTime > maxTime: maxTime = frameTime
-                self.times.append((frameNumber, camNum, frameTime, maxTime -minTime, self.ptrQ[camNum].qsize(), (time.time()-starttime)/frameNumber))
+                self.times.append((frameNumber, camNum, frameTime, maxTime -minTime, self.vidsQ[camNum].qsize(), (time.time()-starttime)/frameNumber))
             
-            time.sleep(0.019)
+            # time.sleep(0.001)
             
             frameNumber += 1
 
@@ -210,7 +218,7 @@ class MainProcess():
     def stop(self):
 
         [_Cam.stop() for _Cam in self.camList]
-        [_FrameWriter.stop() for _FrameWriter in self.frameWriterList]
+        [_Vid.stop() for _Vid in self.vidList]
         _cam_release()
 
 def go():
