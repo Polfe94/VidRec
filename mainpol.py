@@ -153,7 +153,7 @@ class Vid():
 
     def start(self):
                 
-        self.trigger = False
+        # self.trigger = False
         self.running = True
 
         t = Thread(target = self.update, args = (), daemon = True)
@@ -168,8 +168,8 @@ class Vid():
 
         self.outVid.release()
 
-    def getFrame(self):
-        self.trigger = True
+    # def getFrame(self):
+    #     self.trigger = True
 
     def update(self):
 
