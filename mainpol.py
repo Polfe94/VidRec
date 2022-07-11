@@ -125,7 +125,7 @@ class Cam():
             
             try:
                 imgPtr = self.ptr.GetNextImage()
-                self.frameTimes.append(time.time())
+                self.frameTimes.append(time.perf_counter())
                 frame = imgPtr.GetNDArray()
                 imgPtr.Release()
                 self.Q1.put(frame[:1000, :])
@@ -202,8 +202,8 @@ class MainProcess():
         time.sleep(5)
 
         frameNumber = 0
-        startTime = time.time()
-        currTime = time.time() - startTime
+        self.startTime = time.perf_counter()
+        currTime = time.perf_counter() - self.startTime
         while currTime <= recTime:
 
             [_Cam.getFrame() for _Cam in self.camList]
@@ -214,7 +214,7 @@ class MainProcess():
             time.sleep(0.001)
             
             frameNumber += 1
-            currTime = time.time() - startTime
+            currTime = time.perf_counter() - self.startTime
             
         print('Finished recording, mean FPS = %s' % str(frameNumber / recTime))
         frameTimes = np.array([_Cam.frameTimes for _Cam in self.camList])
