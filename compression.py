@@ -12,9 +12,9 @@ if len(videolist) == 36:
     
     output_params = {'-vcodec': 'libx264', '-crf': 20, '-preset': 'veryslow'}
     
-    for i in range(0, 36, 3):
-        vids = [cv2.VideoCapture(source = folder + n) for n in videolist[i:(i+3)]]
-        # output_params['-input_framerate'] = vids[0].framerate
+    for i in range(3, 36, 3):
+        vids = [cv2.VideoCapture(folder + n) for n in videolist[i:(i+3)]]
+        output_params['-input_framerate'] = '9'
         
         writer = WriteGear(output_filename= 'output_%s.mp4' % str((i//3)), **output_params)
         
