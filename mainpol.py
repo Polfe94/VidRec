@@ -62,38 +62,38 @@ class Cam():
         except:
             print('+++ Cam %s NOT inited' % self.sn)
         
-        # nodemap = self.ptr.GetNodeMap()
+        nodemap = self.ptr.GetNodeMap()
 
-        # """ Camera acquisition mode """
-        # node_acquisition_mode = PySpin.CEnumerationPtr(nodemap.GetNode("AcquisitionMode"))
-        # node_acquisition_mode_continuous = node_acquisition_mode.GetEntryByName("Continuous")
-        # acquisition_mode_continuous = node_acquisition_mode_continuous.GetValue()
-        # node_acquisition_mode.SetIntValue(acquisition_mode_continuous)
+        """ Camera acquisition mode """
+        node_acquisition_mode = PySpin.CEnumerationPtr(nodemap.GetNode("AcquisitionMode"))
+        node_acquisition_mode_continuous = node_acquisition_mode.GetEntryByName("Continuous")
+        acquisition_mode_continuous = node_acquisition_mode_continuous.GetValue()
+        node_acquisition_mode.SetIntValue(acquisition_mode_continuous)
 
-        # try:
-        #     if self.ptr.PixelFormat.GetAccessMode() == PySpin.RW:
-        #         if self.mode == 'COLOR':
-        #             self.ptr.PixelFormat.SetValue(PySpin.PixelColorFilter_BayerBG) #COLOR RGB
-        #         else:
-        #             self.ptr.PixelFormat.SetValue(PySpin.PixelFormat_Mono8)
+        try:
+            if self.ptr.PixelFormat.GetAccessMode() == PySpin.RW:
+                if self.mode == 'COLOR':
+                    self.ptr.PixelFormat.SetValue(PySpin.PixelColorFilter_BayerBG) #COLOR RGB
+                else:
+                    self.ptr.PixelFormat.SetValue(PySpin.PixelFormat_Mono8)
 
-        # except PySpin.SpinnakerException as ex:
-        #     print("Error: %s" % ex)
+        except PySpin.SpinnakerException as ex:
+            print("Error: %s" % ex)
 
 
-        # """ Buffer Handling """
-        # nodemap_TLSdevice = self.ptr.GetTLStreamNodeMap()
-        # ptrHandlingMode = PySpin.CEnumerationPtr(nodemap_TLSdevice.GetNode("StreamBufferHandlingMode"))
-        # ptrHandlingModeEntry = ptrHandlingMode.GetEntryByName("NewestOnly")
-        # ptrHandlingMode.SetIntValue(ptrHandlingModeEntry.GetValue())
+        """ Buffer Handling """
+        nodemap_TLSdevice = self.ptr.GetTLStreamNodeMap()
+        ptrHandlingMode = PySpin.CEnumerationPtr(nodemap_TLSdevice.GetNode("StreamBufferHandlingMode"))
+        ptrHandlingModeEntry = ptrHandlingMode.GetEntryByName("NewestOnly")
+        ptrHandlingMode.SetIntValue(ptrHandlingModeEntry.GetValue())
 
-        # """Exposure Time"""
-        # self.ptr.ExposureAuto.SetValue(PySpin.ExposureAuto_Off)
-        # self.setExp(self.exposure)
+        """Exposure Time"""
+        self.ptr.ExposureAuto.SetValue(PySpin.ExposureAuto_Off)
+        self.setExp(self.exposure)
 
-        # """Gain"""
-        # self.ptr.GainAuto.SetValue(PySpin.GainAuto_Off)
-        # self.setGain(self.gain)
+        """Gain"""
+        self.ptr.GainAuto.SetValue(PySpin.GainAuto_Off)
+        self.setGain(self.gain)
         
         self.ptr.BeginAcquisition()
         
@@ -147,7 +147,7 @@ class Vid():
 
         self.Q = Q
 
-        self.fps = 15
+        self.fps = 9 # 15
         self.videoName = '%s/%s_%s%s.avi' %(_videoPath, _videoName, str(self.camNum).zfill(2), str(self.vidNum).zfill(2))
         self.outVid = cv2.VideoWriter(self.videoName, cv2.VideoWriter_fourcc('X','V','I','D'), self.fps, self.vidSize, 0)
 

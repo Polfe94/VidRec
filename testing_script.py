@@ -1,3 +1,4 @@
+'''
 import PySpin
 from multiprocessing import Queue
 from multiprocessing import Pool
@@ -163,7 +164,7 @@ def clear_cams():
     system.ReleaseInstance()
 
 def trigger(cam):
-    im = cam_list[cam].GetNextImage()
+    im = cam.GetNextImage()
     result = im.GetNDArray()
     im.release()
 

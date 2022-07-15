@@ -6,8 +6,8 @@ vidName = 'test'
 ''' DEFAULT CAMERA PARAMETERS '''
 
 # Note: this parameters were set with minimal camera aperture
-exposure = 40.0 # 10
-gain = 10.0 # 5.0
+exposure = 10.0 # 40
+gain = 2.0 # 10.0 # 5.0
 mode = 'BW' # black and white recording
 resize = 1 # factor (0 to 1) to resize output image (i.e. 0.5 * (4000, 3000) = (2000, 1500))
 
