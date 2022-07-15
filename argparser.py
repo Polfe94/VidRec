@@ -21,11 +21,11 @@ def argparse(argv):
         print('\t\t Currently supported parameters are exposure and gain')
         print('\n')
         print('\n')
-        print('\t -r or --resolution changes the output resolution by a factor')
-        print('\t\t It will be applied as VALUE * (4000, 3000)')
-        print('\t\t -r or --resolution 0.5 will set the resolution to be (2000, 1500)')
-        print('\n')
-        print('\n')
+        # print('\t -r or --resolution changes the output resolution by a factor')
+        # print('\t\t It will be applied as VALUE * (4000, 3000)')
+        # print('\t\t -r or --resolution 0.5 will set the resolution to be (2000, 1500)')
+        # print('\n')
+        # print('\n')
         print('\t --fps will set frames per second (FPS) to the provided value')
         print('\t\t --fps 15 sets recording to 15 FPS')
         print('\t\t --fps 0.2 sets recording FPS to 0.2 (i.e. an image every 5 seconds)')
@@ -33,11 +33,11 @@ def argparse(argv):
         print('\t\t FPS are capped to camera speed')
         print('\n')
         print('\n')
-        print('\t -v or --video to record video')
-        print('\t\t -v True or --video True (default) records video and destroys individual images')
-        print('\t\t -v False or --video False keeps individual images and does not append them to a video')
-        print('\n')
-        print('\n')       
+        # print('\t -v or --video to record video')
+        # print('\t\t -v True or --video True (default) records video and destroys individual images')
+        # print('\t\t -v False or --video False keeps individual images and does not append them to a video')
+        # print('\n')
+        # print('\n')       
         print('\t --filename to set a folder to store the video or images')
         print('\t\t Either full path or relative path to the folder the video (or images) should be saved into')
         print('\t\t If the folder does not exists, and the directory is valid, a folder will be created')
@@ -57,8 +57,9 @@ def argparse(argv):
         else:
             mods = {}
 
-        opts, args = getopt.getopt(argv, 'p:v:r',
-         ["params=", "fps=", "filename=", "video=", "resolution="])
+        opts, args = getopt.getopt(argv, '',
+        # ["params=", "fps=", "filename=", "video=", "resolution="])
+        ["params=", "fps=", "filename=", "directory="])
 
     except getopt.GetoptError:
         print('Something went wrong ! Try typing -h or --help to see possible parameters.')
@@ -67,20 +68,13 @@ def argparse(argv):
 
     for opt, arg in opts:
 
-        if opt in ('-p', '--params'):
+        if opt in ('--params'):
             paramlist = arg.split(';')
 
             for param in paramlist:
                 param = param.split('=')
 
                 mods[param] = []
-
-                keys.append(param[0])
-                values.append([])
-
-
-
-
 
                 if hasattr(globals()['params'], param[0]):
                     try:
@@ -129,10 +123,20 @@ def argparse(argv):
                     print(wrng_msg_1)
 
 
-        if opt in ('-r', '--resolution'):
-            mods['resize'] = arg
+        # if opt in ('--resolution'):
+        #     mods['resize'] = arg
 
         if opt in ('-d', '--directory'):
+
+            path = arg.split('~')
+            if len(path) == 2:
+                path = os.path.expanduser('~') + os.sep + path[1]
+
+            elif len(path) == 1:
+                path = path[0]
+
+            else:
+                path = ''.join(path)
 
             try:
 
